@@ -7,6 +7,7 @@
 #include<arpa/inet.h>
 #include<openssl/rsa.h>
 #include<openssl/pem.h>
+#include<openssl/err.h>
 #include<sodium.h>
 #include<errno.h>
 #include<termios.h>
@@ -19,7 +20,8 @@ MYSQL_ROW row;
 char *uname="root", *dbname="anon", *passwd;
 RSA *ku, *kv, *p_ku;
 int peer_sock;
-pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALISER;
+int peer_id;
+pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 
 //prototypes
 int init();
@@ -35,6 +37,9 @@ int init_server(char *);
 void *server_run(void *);
 void *peer_run(void *);
 int send_to_peer(char *);
+int client_workings();
+char *encrypt_to_peer(char *);
+char *decrypt_from_peer(char *);
 
 int init(int argc)
 {
@@ -55,6 +60,8 @@ int init(int argc)
         fprintf(stderr, "\n[-]Error in initiating libsodium library\n");
         return 1;
     }
+
+    return 0;
 }
 
 void *allocate(char *type, int size)
@@ -96,13 +103,14 @@ char *get_pass()
         _exit(-1);
     }
 
-    fgets(pass, sizeof(char)*20, stdin);
+    fgets(pass, sizeof(char)*50, stdin);
 
     if(tcsetattr(fileno(stdin), TCSANOW, &obj1)<0)
     {
         fprintf(stderr, "\n[-]Error in setting stding backto normal: %s\n", strerror(errno));
         _exit(-1);
     }
+
     return pass;
 }
 
@@ -149,7 +157,7 @@ char *get_peer_addr(int *peer_id)
     }
     while((row=mysql_fetch_row(res))!=NULL)
     {
-        sprintf(ip, "%s", row[1]);
+        sprintf(peer_addr, "%s", row[1]);
         *peer_id=(int)strtol(row[0], NULL, 10);
     }
 
@@ -164,16 +172,18 @@ int query_db(char *query)
         fprintf(stderr, "\n[-]Error in sending %s: %s\n", query, mysql_error(conn));
         return 1;
     }
+
     res=mysql_use_result(conn);
     if(res==NULL)
     {
         fprintf(stderr, "\n[-]Result is null\n");
         return 1;
     }
+
     return 0;
 }
 
-int connect_to_peer(char *peer_addr)
+int connect_to_peer(char *peer_ip)
 {
     int peer_sock;
     if((peer_sock=socket(AF_INET, SOCK_STREAM, 0))==-1)
@@ -185,9 +195,9 @@ int connect_to_peer(char *peer_addr)
     struct sockaddr_in peer_addr;
     peer_addr.sin_port=htons(12345);
     peer_addr.sin_family=AF_INET;
-    peer_addr.sin_addr.s_addr=inet_addr(peer_addr);
+    peer_addr.sin_addr.s_addr=inet_addr(peer_ip);
 
-    if(connect(peer_sock, (struct sockaddr*)&addr, sizeof(addr))<0)
+    if(connect(peer_sock, (struct sockaddr*)&peer_addr, sizeof(peer_addr))<0)
     {
         fprintf(stderr, "\n[-]Error in connecting to peer: %s\n", strerror(errno));
         return 0;
@@ -238,7 +248,6 @@ int peer_key_xcg(int peer_sock, char *pubname)
     p_ku=gen_keys("peer_ku", 1);
     
     free(cmds); free(cmdr);
-
     return 0;
 }
 
@@ -259,10 +268,10 @@ RSA *gen_keys(char *fname, int pub)
     }
     else
     {
-        rsa=PEM_read_RSA_PrivateKey(f, &rsa, NULL, NULL);
+        rsa=PEM_read_RSAPrivateKey(f, &rsa, NULL, NULL);
     }
 
-    close(f);
+    fclose(f);
     return rsa;
 }
 
@@ -303,6 +312,12 @@ int init_server(char *ip_port)
         fprintf(stderr, "\n[-]Error in initialising server thread: %s\n", strerror(stat));
         return 1;
     }
+    if((stat=pthread_join(serve_thr, NULL))!=0)
+    {
+        fprintf(stderr, "\n[-]Error in joining to server thread: %s\n", strerror(stat));
+        return 1;
+    }
+
     free(ip);
     return 0;
 }
@@ -327,6 +342,7 @@ void *server_run(void *s)
             fprintf(stderr, "\n[-]Error in creating peer thread %d: %s\n", i, strerror(errno));
             continue;
         }
+
     }
 
     pthread_exit(NULL);
@@ -335,8 +351,7 @@ void *server_run(void *s)
 void *peer_run(void *s)
 {
     int sock= *(int *)s;
-
-    char *cmdr=(char *)allocate(512);
+    char *cmdr=(char *)allocate("char", 512);
     
     if(recv(sock, cmdr, 512*sizeof(char), 0)<0)
     {
@@ -350,6 +365,7 @@ void *peer_run(void *s)
     }
 
     free(cmdr);
+    pthread_exit(NULL);
 }
 
 int send_to_peer(char *cmd)
@@ -368,6 +384,71 @@ int send_to_peer(char *cmd)
     return 0;
 }
 
+int client_workings()
+{
+    char *cmds_en;
+    char *cmds=(char *)allocate("char", 100);
+    char *cmdr;
+    char *cmdr_en=(char *)allocate("char", 512);
+    printf("\n[>]Enter what to send(max 50 char): ");
+    fgets(cmds, 100*sizeof(char), stdin);
+
+    //append the anon-network prefixes
+    sprintf(cmds, "%d:%d:%s\n", peer_id, 0, cmds);
+    if((cmds_en=encrypt_to_peer(cmds))==NULL)
+    {
+        return 1;
+    }
+
+    if(send_to_peer(cmds_en))
+    {
+        return 1;
+    }
+
+    //recv from peer own packet reply
+    if(recv(peer_sock, cmdr_en, 512*sizeof(char), 0)<0)
+    {
+        fprintf(stderr, "\n[-]Error in receving response from peer: %s\n", strerror(errno));
+        return 1;
+    }
+
+    if((cmdr=decrypt_from_peer(cmdr_en))==NULL)
+    {
+        return 1;
+    }
+
+    printf("\n[!]Received: %s\n", cmdr);
+
+    free(cmds); free(cmds_en);
+    free(cmdr); free(cmdr_en);
+    return 0;
+}
+
+char *encrypt_to_peer(char *in)
+{
+    char *cmds_en=(char*)allocate("char", 512);
+    if(RSA_public_encrypt(RSA_size(p_ku)-11, in, cmds_en, p_ku, RSA_PKCS1_PADDING)<0)
+    {
+        fprintf(stderr, "\n[-]Error in encrypting: %s\n", strerror(ERR_get_error()));
+        return NULL;
+    }
+
+    return cmds_en;
+}
+
+char *decrypt_from_peer(char *cmdr_en)
+{
+    char *cmdr=(char *)allocate("char", 512);
+
+    if(RSA_private_decrypt(RSA_size(ku), cmdr_en, cmdr, kv, RSA_PKCS1_PADDING)<0)
+    {
+        fprintf(stderr, "\n[-]Error in decrypting peer's reply: %s\n", strerror(ERR_get_error()));
+        return NULL;
+    }
+
+    return cmdr;
+}
+
 int main(int argc, char *argv[])
 {
     if(init(argc))
@@ -383,7 +464,6 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
-    int peer_id;
     char *peer_addr;
     if((peer_addr=get_peer_addr(&peer_id))==NULL)
     {
@@ -395,8 +475,8 @@ int main(int argc, char *argv[])
         _exit(-1);    
     }
     
-    ku=gen_keys(pubname, 1);
-    kv=gen_keys(privname, 0);
+    ku=gen_keys(argv[2], 1);
+    kv=gen_keys(argv[3], 0);
     if(ku==NULL || kv==NULL)
     {
         fprintf(stderr, "\n[-]Error in generating keys\n");
@@ -414,7 +494,13 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
+    if(client_workings())
+    {
+        _exit(-1);
+    }
+
     free(passwd); 
     mysql_close(conn);
     free(peer_addr);
+    return 0;
 }
