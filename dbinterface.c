@@ -303,9 +303,14 @@ char *db_work(struct client cli, char *query, int q_type)
         }
         
         res=mysql_use_result(conn);
-        while((row=mysql_fetch_row(res))!=NULL)
+        row=mysql_fetch_row(res);
+        if((sizeof(row)/sizeof(row[0]))==1)
         {
-            sprintf(cmds, "%s%s:%s\n", cmds, row[0], row[1]);
+            sprintf(cmds, "%s\n", row[0]);
+        }
+        else
+        {
+            sprintf(cmds, "%s:%s\n", row[0], row[1]);
         }
         if((stat=pthread_mutex_lock(&mutex))!=0)
         {
