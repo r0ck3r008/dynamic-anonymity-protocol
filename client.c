@@ -10,26 +10,20 @@
 #include<openssl/err.h>
 #include<sodium.h>
 #include<errno.h>
-#include<termios.h>
-#include<mysql/mysql.h>
 #include<pthread.h>
 
-MYSQL *conn;
-MYSQL_RES *res;
-MYSQL_ROW row;
-char *uname="root", *dbname="anon", *passwd;
 RSA *ku, *kv, *p_ku;
 int peer_sock;
 int peer_id;
+int db_sock;
 pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 
 //prototypes
-int init();
+int init(int);
 void *allocate(char *, int);
-char *get_pass();
 int dbconnect(char *);
 char *get_peer_addr(int *);
-int query_db(char *);
+char *query_db(char *, int);
 int connect_to_peer(char *);
 int peer_key_xcg(int, char *);
 RSA *gen_keys(char *, int);
@@ -45,13 +39,7 @@ int init(int argc)
 {
     if(argc!=5)
     {
-        fprintf(stderr, "\n[!]Usage:./client [db-server-ip] [client-pub-key.pem] [client-priv-key.pem] [ip-to-bind:port-to-bind]\n");
-        return 1;
-    }
-
-    if(mysql_library_init(0, NULL, NULL))
-    {
-        fprintf(stderr, "\n[-]Error in initiating mysql library\n");
+        fprintf(stderr, "\n[!]Usage:./client [db-server-ip:db_server:port] [client-pub-key.pem] [client-priv-key.pem] [ip-to-bind:port-to-bind]\n");
         return 1;
     }
 
@@ -82,105 +70,81 @@ void *allocate(char *type, int size)
     return ret;
 }
 
-char *get_pass()
+int dbconnect(char *argv1)
 {
-    char *pass=(char*)allocate("char", 50);
-    struct termios obj1, obj2;
+    char *ip=(char *)allocate("char", 20);
+    ip=strtok(argv1, ":");
+    int port=(int)strtol(strtok(NULL, ":"), NULL, 10);
+    int s;
+    struct sockaddr_in db_addr;
+    db_addr.sin_family=AF_INET;
+    db_addr.sin_port=htons(port);
+    db_addr.sin_addr.s_addr=inet_addr(ip);
 
-    if(tcgetattr(fileno(stdin), &obj1)<0)
+    if((s=socket(AF_INET, SOCK_STREAM, 0))<0)
     {
-        fprintf(stderr, "\n[-]Error in getting stdin attributes: %s\n", strerror(errno));
-        _exit(-1);
+        fprintf(stderr, "\n[-]Error in creating db_sock: %s\n", strerror(errno));
+        return 0;
     }
 
-    obj2=obj1;
-    obj2.c_lflag &= ~ECHO;
-    obj2.c_lflag |= ECHONL;
-
-    if(tcsetattr(fileno(stdin), TCSANOW,  &obj2)<0)
+    if(connect(s, (struct sockaddr *)&db_addr, sizeof(db_addr))<0)
     {
-        fprintf(stderr, "\n[-]Error in setting stding ~ECHO attribute: %s\n", strerror(errno));
-        _exit(-1);
+        fprintf(stderr, "\n[-]Error in connecting to db server: %s\n", strerror(errno));
+        return 0;
     }
 
-    fgets(pass, sizeof(char)*50, stdin);
-
-    if(tcsetattr(fileno(stdin), TCSANOW, &obj1)<0)
-    {
-        fprintf(stderr, "\n[-]Error in setting stding backto normal: %s\n", strerror(errno));
-        _exit(-1);
-    }
-
-    return pass;
-}
-
-int dbconnect(char *server)
-{
-    if((conn=mysql_init(NULL))==NULL)
-    {
-        fprintf(stderr, "\n[-]Error in initiating connection\n");
-        return 1;
-    }
-
-    if(!mysql_real_connect(conn, server, uname, passwd, dbname, 0, NULL, 0))
-    {
-        fprintf(stderr, "\n[-]Error in conneting to db: %s\n", mysql_error(conn));
-        return 1;
-    }
-    printf("\n[!]Connected to database\n");
-    
-    return 0;
+    free(ip);
+    return s;
 }
 
 char *get_peer_addr(int *peer_id)
 {
     char *peer_addr=(char*)allocate("char", 20);
-    char *query=(char*)allocate("char", 100);
+    char *query=(char*)allocate("char", 512);
+    char *cmdr;
 
-    sprintf(query, "select count(*) from peers;");
-    if(query_db(query))
+    sprintf(query, "1:select count(*) from peers;");
+    if((cmdr=query_db(query, 1))==NULL)
     {
         return NULL;
     }
-    int count;
-    while((row=mysql_fetch_row(res))!=NULL)
-    {
-        count=(int)strtol(row[0], NULL, 10);
-    }
-    explicit_bzero(query, 100*sizeof(char));
+    int count=(int)strtol(cmdr, NULL, 10);
+    explicit_bzero(query, 512*sizeof(char));
 
     int rand=(int)randombytes_uniform(count);
-    sprintf(query, "select id, ip from peers where sno=%d;", rand);
-    if(query_db(query))
+    sprintf(query, "1:select id, ip from peers where sno=%d;", rand);
+    if((cmdr=query_db(query,1))==NULL)
     {
         return NULL;
     }
-    while((row=mysql_fetch_row(res))!=NULL)
-    {
-        sprintf(peer_addr, "%s", row[1]);
-        *peer_id=(int)strtol(row[0], NULL, 10);
-    }
+    *peer_id=(int)strtol(strtok(cmdr, ":"), NULL, 10);
+    sprintf(peer_addr, "%s", strtok(NULL, ":"));
 
     free(query);
+    free(cmdr);
     return peer_addr;
 }
 
-int query_db(char *query)
+char *query_db(char *query, int rcv)
 {
-    if(mysql_query(conn, query))
+    char *cmdr=(char *)allocate("char", 512);
+
+    if(send(db_sock, query, sizeof(char)*512, 0)<0)
     {
-        fprintf(stderr, "\n[-]Error in sending %s: %s\n", query, mysql_error(conn));
-        return 1;
+        fprintf(stderr, "\n[-]error in sending query %s db server: %s\n", query, strerror(errno));
+        return NULL;
     }
 
-    res=mysql_use_result(conn);
-    if(res==NULL)
+    if(rcv)
     {
-        fprintf(stderr, "\n[-]Result is null\n");
-        return 1;
+        if(recv(db_sock, cmdr, sizeof(char)*512, 0)<0)
+        {
+            fprintf(stderr, "\n[-]Error in receving from dbserver for query %s: %s\n", query, strerror(errno));
+            return NULL;
+        }
+        return cmdr;
     }
-
-    return 0;
+    return NULL;
 }
 
 int connect_to_peer(char *peer_ip)
@@ -245,7 +209,11 @@ int peer_key_xcg(int peer_sock, char *pubname)
     }
     fclose(f);
 
-    p_ku=gen_keys("peer_ku", 1);
+    if((p_ku=gen_keys("peer_ku", 1))==NULL)
+    {
+        fprintf(stderr, "\n[-]Error in generating peer key\n");
+        return 1;
+    }
     
     free(cmds); free(cmdr);
     return 0;
@@ -257,7 +225,7 @@ RSA *gen_keys(char *fname, int pub)
     if((f=fopen(fname, "rb"))==NULL)
     {
         fprintf(stderr, "\n[-]Error in opening file %s: %s\n", strerror(errno));
-        _exit(-1);
+        return NULL;
     }
 
     RSA *rsa=RSA_new();
@@ -324,25 +292,34 @@ int init_server(char *ip_port)
 
 void *server_run(void *s)
 {
-    int serve_sock= *(int *)s;
+    int serve_sock= *(int *)s, count_cxns=0;
 
     pthread_t tid[10];
-    for(int i=0; ; i++)
+    for(; ; count_cxns++)
     {
         int s;
         if((s=accept(serve_sock, NULL, NULL))<0)
         {
-            fprintf(stderr, "\n[-]Error in accepting msg from peer %d: %s\n", i, strerror(errno));
+            fprintf(stderr, "\n[-]Error in accepting msg from peer %d: %s\n", count_cxns, strerror(errno));
             continue;
         }
 
         int stat;
-        if((stat=pthread_create(&tid[i], NULL, peer_run, &s))!=0)
+        if((stat=pthread_create(&tid[count_cxns], NULL, peer_run, &s))!=0)
         {
-            fprintf(stderr, "\n[-]Error in creating peer thread %d: %s\n", i, strerror(errno));
+            fprintf(stderr, "\n[-]Error in creating peer thread %d: %s\n", count_cxns, strerror(errno));
             continue;
         }
+    }
 
+    for(int i=0; i<count_cxns; i++)
+    {
+        int stat;
+        if((stat=pthread_join(tid[i], NULL))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in joining %d thread: %s\n", i, strerror(stat));
+            pthread_exit(NULL);
+        }
     }
 
     pthread_exit(NULL);
@@ -456,10 +433,7 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
-    printf("\n[>]Enter db password: ");
-    passwd=get_pass();
-
-    if(dbconnect(argv[1]))
+    if((db_sock=dbconnect(argv[1]))==0)
     {
         _exit(-1);
     }
@@ -475,12 +449,9 @@ int main(int argc, char *argv[])
         _exit(-1);    
     }
     
-    ku=gen_keys(argv[2], 1);
-    kv=gen_keys(argv[3], 0);
-    if(ku==NULL || kv==NULL)
+    if((ku=gen_keys(argv[2], 1))==NULL || (kv=gen_keys(argv[3], 0))==NULL)
     {
-        fprintf(stderr, "\n[-]Error in generating keys\n");
-        return 1;
+        _exit(-1);
     }
 
     if(peer_key_xcg(peer_sock, argv[2]))
@@ -499,8 +470,6 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
-    free(passwd); 
-    mysql_close(conn);
     free(peer_addr);
     return 0;
 }
