@@ -19,7 +19,7 @@ struct client
 int server_sock;
 int db_sock;
 RSA *ku, *kv;
-char *bound_ip, *ku_fname;
+char *ku_fname;
 
 //prototypes
 void *allocate(char *, int);
@@ -193,7 +193,7 @@ int update_peers_table()
     }
     fclose(f);
 
-    sprintf(cmds, "1:%s:%s", strtok(bound_ip, ":"), ku_str);
+    sprintf(cmds, "1:%s",  ku_str);
 
     if(send(db_sock, cmds, 2048*sizeof(char), 0)<0)
     {
@@ -224,7 +224,6 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
-    bound_ip=argv[1];
     ku_fname=argv[2];
     if((server_sock=server_init(argv[1]))==0)
     {
