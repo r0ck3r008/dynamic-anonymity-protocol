@@ -193,7 +193,7 @@ int update_peers_table()
     }
     fclose(f);
 
-    sprintf(cmds, "addMe:%s:%s", strtok(bound_ip, ":"), ku_str);
+    sprintf(cmds, "1:%s:%s", strtok(bound_ip, ":"), ku_str);
 
     if(send(db_sock, cmds, 2048*sizeof(char), 0)<0)
     {
