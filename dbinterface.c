@@ -201,7 +201,6 @@ int server_workings()
 void *cli_run(void *c);
 {
     struct client cli=*(struct client *)c;
-
 }
 
 int main(int argc, char *argv[])
