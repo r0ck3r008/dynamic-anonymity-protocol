@@ -5,6 +5,8 @@
 #include<sys/socket.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
+#include<openssl/rsa.h>
+#include<openssl/pem.h>
 #include<pthread.h>
 #include<errno.h>
 
@@ -17,6 +19,7 @@ int init(int);
 int server_init(char *);
 RSA *gen_keys(char *, int);
 int dbconnect(char *);
+int update_existance_in_peers(char *);
 
 void *allocate(char *type, int size)
 {
@@ -51,8 +54,7 @@ int init(int argc)
 int server_init(char *argv1)
 {
     int s;
-    char *ip=(char *)allocate("char", 20);
-    ip=strtok(argv2, ":");
+    char *ip=strtok(argv1, ":");
     struct sockaddr_in addr;
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=inet_addr(ip);
@@ -99,14 +101,14 @@ RSA *gen_keys(char *fname, int pub)
         rsa=PEM_read_RSAPrivateKey(f, &rsa, NULL, NULL);
     }
 
+    fclose(f);
     return rsa;
 }
 
-int dbconnect(char *argv2)
+int dbconnect(char *argv4)
 {
     int s;
-    char *ip=(char *)allocate("char", 20);
-    ip=strtok(argv4, ":");
+    char *ip=strtok(argv4, ":");
     struct sockaddr_in addr;
     addr.sin_family=AF_INET;
     addr.sin_port=htons((int)strtol(strtok(NULL, ":"), NULL, 10));
@@ -123,8 +125,34 @@ int dbconnect(char *argv2)
         fprintf(stderr, "\n[-]Error in connecting to %s:%d: %s\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), strerror(errno));
         return 0;
     }
-    free(ip);
+
     return s;
+}
+
+int update_existance_in_peers(char *ku_fname)
+{
+    char *cmds=(char *)allocate("char", 2048);
+    FILE *f;
+    if((f=fopen(ku_fname, "r"))==NULL)
+    {
+        fprintf(stderr, "\n[-]Error in opening %s: %s\n", ku_fname, strerror(errno));
+        return 1;
+    }
+    for(int i=0; !feof(f); i++)
+    {
+        fscanf(f, "%c", &cmds[i]);
+    }
+    sprintf(cmds, "1:%s", cmds);    //1 for insert
+
+    if(send(db_sock, cmds, sizeof(char)*2048, 0)<0)
+    {
+        fprintf(stderr, "\n[-]Error in sending to the database interface: %s\n", strerror(errno));
+        return 1;
+    }
+
+    fclose(f);
+    free(cmds);
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -145,6 +173,11 @@ int main(int argc, char *argv[])
     }
 
     if((db_sock=dbconnect(argv[4]))==0)
+    {
+        _exit(-1);
+    }
+
+    if(update_existance_in_peers(argv[2]))
     {
         _exit(-1);
     }
