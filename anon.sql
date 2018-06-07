@@ -23,10 +23,10 @@ DROP TABLE IF EXISTS `clients`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `clients` (
-  `id` int(11) DEFAULT NULL,
+  `pid` int(11) DEFAULT NULL,
   `ip` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  KEY `id` (`id`),
-  CONSTRAINT `clients_ibfk_1` FOREIGN KEY (`id`) REFERENCES `peers` (`id`)
+  KEY `pid` (`pid`),
+  CONSTRAINT `clients_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `peers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -47,10 +47,12 @@ DROP TABLE IF EXISTS `peers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `peers` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `sno` int(11) DEFAULT NULL,
+  `id` int(11) NOT NULL,
   `ip` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ku` varchar(4069) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -71,4 +73,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-06-07  0:35:57
+-- Dump completed on 2018-06-08  1:04:38
