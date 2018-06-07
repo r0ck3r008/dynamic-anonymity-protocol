@@ -7,6 +7,7 @@
 #include<arpa/inet.h>
 #include<mysql/mysql.h>
 #include<pthread.h>
+#include<sodium.h>
 #include<termios.h>
 #include<errno.h>
 
@@ -19,6 +20,9 @@ int server_sock, cli_num=0;
 MYSQL *conn;
 MYSQL_RES *res;
 MYSQL_ROW row;
+pthread_mutex_t wrt= PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex= PTHREAD_MUTEX_INITIALIZER;
+int rc=0, sno=0, rand_array[100];
 
 //prototypes
 void *allocate(char *, int);
@@ -28,6 +32,7 @@ int dbconnect(char *);
 char *get_passwd();
 int server_workings();
 void *cli_run(void *);
+char *db_workings(struct client, char *);
 
 void *allocate(char *type, int size)
 {
@@ -37,6 +42,11 @@ void *allocate(char *type, int size)
     {
         ret=malloc(size*sizeof(char));
         explicit_bzero(ret, size*sizeof(char));
+    }
+    else if(strcmp(type, "int")==0)
+    {
+        ret=malloc(size*sizeof(int));
+        explicit_bzero(ret, size*sizeof(int));       
     }
 
     if(ret==NULL)
@@ -74,8 +84,7 @@ int init(int argc)
 int server_init(char *argv1)
 {
     int s;
-    char *ip=(char *)allocate("char", 20);
-    ip=strtok(argv2, ":");
+    char *ip=strtok(argv1, ":");
     struct sockaddr_in addr;
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=inet_addr(ip);
@@ -99,7 +108,6 @@ int server_init(char *argv1)
         return 0;
     }
 
-    free(ip);
     return s;
 }
 
@@ -118,7 +126,7 @@ int dbconnect(char *argv2)
         return 1;
     }
 
-    if(!mysql_real_connect(conn, uname, passwd, dbname, 0, NULL, 0))
+    if(!mysql_real_connect(conn, server, uname, passwd, dbname, 0, NULL, 0))
     {
         fprintf(stderr, "\n[-]Error in connecting to database: %s\n", strerror(errno));
         return 1;
@@ -169,6 +177,7 @@ int server_workings()
     struct client cli[10];
     int stat;
     socklen_t len=sizeof(struct sockaddr_in);
+    char *retval;
 
     for(; cli_num<10; cli_num++)
     {
@@ -198,9 +207,79 @@ int server_workings()
     return 0;
 }
 
-void *cli_run(void *c);
+void *cli_run(void *c)
 {
     struct client cli=*(struct client *)c;
+    char *cmdr=(char *)allocate("char", 2048);
+    char *cmds=(char *)allocate("char", 512);
+    int bit;
+
+    if(recv(server_sock, cmdr, sizeof(char)*2048, 0)<0)
+    {
+        fprintf(stderr, "\n[-]Error in receving from client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
+        pthread_exit("ERROR IN RECEVING");
+    }
+
+    if((cmds=db_workings(cli, cmdr))==NULL)
+    {
+        pthread_exit("ERROR IN DB_WORKINGS");
+    }
+}
+
+char *db_workings(struct client cli, char *cmdr)
+{
+    int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), stat;
+    char *query=(char *)allocate("char", 4096);
+    if(bit)
+    {
+        int rand, counter;
+        for(int flag=0; flag!=1; )
+        {
+            rand=(int)randombytes_uniform(10000);
+            for(counter=0; counter<100; counter++)
+            {
+                if(rand==rand_array[counter])
+                {
+                    break;
+                }
+                else if(counter==-1)
+                {
+                    flag=1;
+                    break;
+                }
+            }
+        }
+        if((stat=pthread_mutex_lock(&wrt))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+        rand_array[counter]=rand;
+        sprintf(query, "insert into peers values (%d, %d, '%s', '%s');", sno++, rand, inet_ntoa(cli.addr.sin_addr), strtok(NULL, ":"));
+        if(mysql_query(conn, query))
+        {
+            fprintf(stderr, "\n[-]Error in querying for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), mysql_error(conn));
+            return NULL;
+        }
+        if(mysql_affected_rows(conn)!=1)
+        {
+            fprintf(stderr, "\n[-]Error in updating db for client %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
+            return NULL;
+        }
+        if((stat=pthread_mutex_unlock(&wrt))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in unlocking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+
+        return "SUCCESS";
+    }
+    else
+    {
+        
+    }
+
+    free(query);
 }
 
 int main(int argc, char *argv[])
@@ -218,6 +297,11 @@ int main(int argc, char *argv[])
     if(dbconnect(argv[2]))
     {
         _exit(-1);
+    }
+
+    for(int i=0; i<100; i++)
+    {
+        rand_array[i]=-1;
     }
 
     if(server_workings())
