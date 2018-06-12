@@ -115,6 +115,7 @@ int dbconnect(char *argv2)
 {
     char *server=strtok(argv2, ":"), *uname=strtok(NULL, ":"), *dbname=strtok(NULL, ":");
     char *passwd;
+    printf("\n[>]Enter passwd: ");
     if((passwd=get_passwd())==NULL)
     {
         return 1;
@@ -178,6 +179,7 @@ int server_workings()
     int stat;
     socklen_t len=sizeof(struct sockaddr_in);
     char *retval;
+    printf("\n[!]Starting dbinterface....\n[!]Waiting for connections...\n");
 
     for(; cli_num<10; cli_num++)
     {
@@ -214,7 +216,7 @@ void *cli_run(void *c)
     char *cmds=(char *)allocate("char", 2048);
     int bit;
 
-    if(recv(server_sock, cmdr, sizeof(char)*2048, 0)<0)
+    if(recv(cli.sock, cmdr, sizeof(char)*2048, 0)<0)
     {
         fprintf(stderr, "\n[-]Error in receving from client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
         pthread_exit("ERROR IN RECEVING");
@@ -227,7 +229,7 @@ void *cli_run(void *c)
     }
     sprintf(cmds, "%s", ret);
 
-    if(send(server_sock, cmds, sizeof(char)*2048, 0)<0)
+    if(send(cli.sock, cmds, sizeof(char)*2048, 0)<0)
     {
         fprintf(stderr, "\n[-]Error in sending back to %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
         pthread_exit("ERROR IN SENDING");
@@ -256,7 +258,7 @@ char *db_workings(struct client cli, char *cmdr)
                 {
                     break;
                 }
-                else if(counter==-1)
+                else if(rand_array[counter]==-1)
                 {
                     flag=1;
                     break;
