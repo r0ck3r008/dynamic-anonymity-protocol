@@ -42,9 +42,9 @@ void *allocate(char *type, int size)
 
 int init(int argc)
 {
-    if(argc!=3)
+    if(argc!=5)
     {
-        fprintf(stderr, "\n[!]Usage:\n./dbinterface [ip_to_bind:port_to_bind] [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
+        fprintf(stderr, "\n[!]Usage:\n./peer [ip_to_bind:port_to_bind] [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
         return 1;
     }
 
@@ -78,6 +78,7 @@ int server_init(char *argv1)
         return 0;
     }
 
+    printf("\n[!]listning on %s:%d...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     return s;
 }
 
@@ -126,6 +127,7 @@ int dbconnect(char *argv4)
         return 0;
     }
 
+    printf("\n[!]Connected to dbinterface\n");
     return s;
 }
 
@@ -139,11 +141,12 @@ int update_existance_in_peers(char *ku_fname)
         fprintf(stderr, "\n[-]Error in opening %s: %s\n", ku_fname, strerror(errno));
         return 1;
     }
-    for(int i=0; !feof(f); i++)
+    strcat(cmds, "1:0:");
+    for(int i=4; !feof(f); i++)
     {
         fscanf(f, "%c", &cmds[i]);
     }
-    sprintf(cmds, "1:0:%s", cmds);    //1 for insert, zero for expected return columns
+    //1 for insert, zero for expected return columns
 
     if(send(db_sock, cmds, sizeof(char)*2048, 0)<0)
     {
