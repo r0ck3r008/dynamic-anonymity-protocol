@@ -132,6 +132,7 @@ int dbconnect(char *argv4)
 int update_existance_in_peers(char *ku_fname)
 {
     char *cmds=(char *)allocate("char", 2048);
+    char *cmdr=(char *)allocate("char", 512);
     FILE *f;
     if((f=fopen(ku_fname, "r"))==NULL)
     {
@@ -142,7 +143,7 @@ int update_existance_in_peers(char *ku_fname)
     {
         fscanf(f, "%c", &cmds[i]);
     }
-    sprintf(cmds, "1:%s", cmds);    //1 for insert
+    sprintf(cmds, "1:0:%s", cmds);    //1 for insert, zero for expected return columns
 
     if(send(db_sock, cmds, sizeof(char)*2048, 0)<0)
     {
@@ -150,8 +151,17 @@ int update_existance_in_peers(char *ku_fname)
         return 1;
     }
 
+    if(recv(db_sock, cmdr, sizeof(char)*512, 0)<0)
+    {
+        fprintf(stderr, "\n[-]Error in receving ack from dbinterface: %s\n", strerror(errno));
+        return 1;
+    }
+
+    printf("\n[!]Received from dbinterface %s\n", cmdr);
+
     fclose(f);
     free(cmds);
+    free(cmdr);
     return 0;
 }
 
