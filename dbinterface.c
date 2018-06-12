@@ -211,7 +211,7 @@ void *cli_run(void *c)
 {
     struct client cli=*(struct client *)c;
     char *cmdr=(char *)allocate("char", 2048);
-    char *cmds=(char *)allocate("char", 512);
+    char *cmds=(char *)allocate("char", 2048);
     int bit;
 
     if(recv(server_sock, cmdr, sizeof(char)*2048, 0)<0)
@@ -220,16 +220,30 @@ void *cli_run(void *c)
         pthread_exit("ERROR IN RECEVING");
     }
 
-    if((cmds=db_workings(cli, cmdr))==NULL)
+    char *ret;
+    if((ret=db_workings(cli, cmdr))==NULL)
     {
         pthread_exit("ERROR IN DB_WORKINGS");
     }
+    sprintf(cmds, "%s", ret);
+
+    if(send(server_sock, cmds, sizeof(char)*2048, 0)<0)
+    {
+        fprintf(stderr, "\n[-]Error in sending back to %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
+        pthread_exit("ERROR IN SENDING");
+    }
+
+    free(cmdr);
+    free(cmds);
+    free(ret);
+    pthread_exit("SUCCESS");
 }
 
 char *db_workings(struct client cli, char *cmdr)
 {
-    int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), stat;
-    char *query=(char *)allocate("char", 4096);
+    int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), stat, exp_col=(int)strtol(strtok(NULL, ":"), NULL, 10);
+    char *query=(char *)allocate("char", 2048); //buz peer will send key
+    char *ret=(char *)allocate("char", 2048);   //bcuz client will fetch key
     if(bit)
     {
         int rand, counter;
@@ -271,15 +285,71 @@ char *db_workings(struct client cli, char *cmdr)
             fprintf(stderr, "\n[-]Error in unlocking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
             return NULL;
         }
-
-        return "SUCCESS";
+        sprintf(ret, "SUCCESS");
     }
     else
     {
-        
+        ret=NULL;
+        if((stat=pthread_mutex_lock(&mutex))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in locking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+        if(++rc==1)
+        {
+            if((stat=pthread_mutex_lock(&wrt))!=0)
+            {
+                fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+                return NULL;
+            }
+        }
+        if((stat=pthread_mutex_unlock(&mutex))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in unlocking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+
+        sprintf(query, "%s", strtok(NULL, ":"));
+        if(mysql_query(conn, query))
+        {
+            fprintf(stderr, "\n[-]Error in querying %s for: %s:%d: %s\n", query, inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+
+        res=mysql_use_result(conn);
+        while((row=mysql_fetch_row(res))!=NULL)
+        {
+            for(int i=0; i<exp_col; i++)
+            {
+                strcat(ret, row[i]);
+                if(i==exp_col-1)
+                {
+                    strcat(ret, "\n");
+                }
+            }
+        }
+        if((stat=pthread_mutex_lock(&mutex))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in locking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
+        if(--rc==0)
+        {
+            if((stat=pthread_mutex_lock(&wrt))!=0)
+            {
+                fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+                return NULL;
+            }
+        }
+        if((stat=pthread_mutex_unlock(&mutex))!=0)
+        {
+            fprintf(stderr, "\n[-]Error in unlocking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            return NULL;
+        }
     }
 
     free(query);
+    return ret;
 }
 
 int main(int argc, char *argv[])
