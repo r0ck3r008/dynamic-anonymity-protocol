@@ -20,9 +20,8 @@ int server_sock, cli_num=0;
 MYSQL *conn;
 MYSQL_RES *res;
 MYSQL_ROW row;
-pthread_mutex_t wrt= PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex= PTHREAD_MUTEX_INITIALIZER;
-int rc=0, sno=0, rand_array[100];
+int sno=0, rand_array[100];
 
 //prototypes
 void *allocate(char *, int);
@@ -129,7 +128,7 @@ int dbconnect(char *argv2)
 
     if(!mysql_real_connect(conn, server, uname, passwd, dbname, 0, NULL, 0))
     {
-        fprintf(stderr, "\n[-]Error in connecting to database: %s\n", strerror(errno));
+        fprintf(stderr, "\n[-]Error in connecting to database: %s\n", mysql_error(conn));
         return 1;
     }
 
@@ -213,31 +212,41 @@ void *cli_run(void *c)
 {
     struct client cli=*(struct client *)c;
     char *cmdr=(char *)allocate("char", 2048);
-    char *cmds=(char *)allocate("char", 2048);
+    char *cmds;
     int bit;
 
-    if(recv(cli.sock, cmdr, sizeof(char)*2048, 0)<0)
+    printf("\n[!]Accepted from %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
+    while(1)
     {
-        fprintf(stderr, "\n[-]Error in receving from client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
-        pthread_exit("ERROR IN RECEVING");
+        if(recv(cli.sock, cmdr, sizeof(char)*2048, 0)<0)
+        {
+            fprintf(stderr, "\n[-]Error in receving from client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
+            pthread_exit("ERROR IN RECEVING");
+        }
+        if(strcmp(cmdr, "DONE")==0)
+        {
+            printf("\n[!]Exiting client %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
+            if(send(cli.sock, "OK", sizeof(char)*strlen("OK"), 0)<0)
+            {
+                fprintf(stderr, "\n[-]Error in sending back ack to client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
+                pthread_exit("ERROR IN SENDING ACK");
+            }
+            break;
+        }
+
+        if((cmds=db_workings(cli, cmdr))==NULL)
+        {
+            pthread_exit("ERROR IN DB_WORKINGS");
+        }
+
+        if(send(cli.sock, cmds, sizeof(char)*2048, 0)<0)
+        {
+            fprintf(stderr, "\n[-]Error in sending back to %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
+            pthread_exit("ERROR IN SENDING");
+        }
     }
 
-    char *ret;
-    if((ret=db_workings(cli, cmdr))==NULL)
-    {
-        pthread_exit("ERROR IN DB_WORKINGS");
-    }
-    sprintf(cmds, "%s", ret);
-
-    if(send(cli.sock, cmds, sizeof(char)*2048, 0)<0)
-    {
-        fprintf(stderr, "\n[-]Error in sending back to %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
-        pthread_exit("ERROR IN SENDING");
-    }
-
-    free(cmdr);
-    free(cmds);
-    free(ret);
+    free(cmdr);free(cmds);
     pthread_exit("SUCCESS");
 }
 
@@ -245,7 +254,7 @@ char *db_workings(struct client cli, char *cmdr)
 {
     int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), stat, exp_col=(int)strtol(strtok(NULL, ":"), NULL, 10);
     char *query=(char *)allocate("char", 2048); //buz peer will send key
-    char *ret=(char *)allocate("char", 2048);   //bcuz client will fetch key
+    char *cmds=(char *)allocate("char", 2048);   //bcuz client will fetch key
     if(bit)
     {
         int rand, counter;
@@ -265,11 +274,12 @@ char *db_workings(struct client cli, char *cmdr)
                 }
             }
         }
-        if((stat=pthread_mutex_lock(&wrt))!=0)
+        if((stat=pthread_mutex_lock(&mutex))!=0)
         {
             fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
             return NULL;
         }
+
         rand_array[counter]=rand;
         sprintf(query, "insert into peers values (%d, %d, '%s', '%s');", sno++, rand, inet_ntoa(cli.addr.sin_addr), strtok(NULL, ":"));
         if(mysql_query(conn, query))
@@ -282,67 +292,43 @@ char *db_workings(struct client cli, char *cmdr)
             fprintf(stderr, "\n[-]Error in updating db for client %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
             return NULL;
         }
-        if((stat=pthread_mutex_unlock(&wrt))!=0)
+
+        if((stat=pthread_mutex_unlock(&mutex))!=0)
         {
             fprintf(stderr, "\n[-]Error in unlocking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
             return NULL;
         }
-        sprintf(ret, "SUCCESS");
+        sprintf(cmds, "SUCCESS");
     }
     else
     {
-        ret=NULL;
         if((stat=pthread_mutex_lock(&mutex))!=0)
         {
             fprintf(stderr, "\n[-]Error in locking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
             return NULL;
         }
-        if(++rc==1)
-        {
-            if((stat=pthread_mutex_lock(&wrt))!=0)
-            {
-                fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
-                return NULL;
-            }
-        }
-        if((stat=pthread_mutex_unlock(&mutex))!=0)
-        {
-            fprintf(stderr, "\n[-]Error in unlocking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
-            return NULL;
-        }
-
+        
         sprintf(query, "%s", strtok(NULL, ":"));
         if(mysql_query(conn, query))
         {
-            fprintf(stderr, "\n[-]Error in querying %s for: %s:%d: %s\n", query, inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
+            fprintf(stderr, "\n[-]Error in querying %s for: %s:%d: %s\n", query, inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), mysql_error(conn));
             return NULL;
         }
-
         res=mysql_use_result(conn);
-        while((row=mysql_fetch_row(res))!=NULL)
+        row=mysql_fetch_row(res);
+        for(int i=0; i<exp_col; i++)
         {
-            for(int i=0; i<exp_col; i++)
+            strcat(cmds, row[i]);
+            if(i==exp_col-1)
             {
-                strcat(ret, row[i]);
-                if(i==exp_col-1)
-                {
-                    strcat(ret, "\n");
-                }
+                strcat(cmds, "\n");
+            }
+            else
+            {
+                strcat(cmds, ":");
             }
         }
-        if((stat=pthread_mutex_lock(&mutex))!=0)
-        {
-            fprintf(stderr, "\n[-]Error in locking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
-            return NULL;
-        }
-        if(--rc==0)
-        {
-            if((stat=pthread_mutex_lock(&wrt))!=0)
-            {
-                fprintf(stderr, "\n[-]Error in locking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
-                return NULL;
-            }
-        }
+        mysql_free_result(res);
         if((stat=pthread_mutex_unlock(&mutex))!=0)
         {
             fprintf(stderr, "\n[-]Error in unlocking mutex for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
@@ -351,7 +337,7 @@ char *db_workings(struct client cli, char *cmdr)
     }
 
     free(query);
-    return ret;
+    return cmds;
 }
 
 int main(int argc, char *argv[])
