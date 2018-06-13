@@ -59,9 +59,9 @@ void *allocate(char *type, int size)
 
 int init(int argc)
 {
-    if(argc!=3)
+    if(argc!=5)
     {
-        fprintf(stderr, "\n[!]Usage:\n./dbinterface [ip_to_bind:port_to_bind] [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
+        fprintf(stderr, "\n[!]Usage:\n./client [ip_to_bind:port_to_bind] [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
         return 1;
     }
 
@@ -95,6 +95,7 @@ int server_init(char *argv1)
         fprintf(stderr, "\n[-]Listen: %s\n", strerror(errno));
         return 0;
     }
+    printf("\n[!]Server listning on %s:%d...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 
     return s;
 }
@@ -143,7 +144,8 @@ int dbconnect(char *argv4)
         fprintf(stderr, "\n[-]Error in connecting to %s:%d: %s\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), strerror(errno));
         return 0;
     }
-    free(ip);
+    printf("\n[!]Connected to dbinterface...\n");
+
     return s;
 }
 
@@ -151,7 +153,7 @@ int get_rand_sno()
 {
     char *query=(char *)allocate("char", 2048);
     char *cmdr;
-    sprintf(query, "0:1:select counnt(*) from peers;");
+    sprintf(query, "0:1:select count(*) from peers;");
     
     if(snd(db_sock, query, "query to count number of peers"))
     {
@@ -175,7 +177,7 @@ int get_rand_peer(struct peer *p, int rand_sno, char *ku_fname)
     char *query=(char *)allocate("char", 2048), *key_str, *cmdr, *ip=(char *)allocate("char", 20);
     FILE *f;
 
-    sprintf(query, "0:2:select id, ip, ku from peers where sno=%d;", rand_sno);
+    sprintf(query, "0:3:select id, ip, ku from peers where sno=%d;", rand_sno);
 
     if(snd(db_sock, query, "get ip, id, and key from db_inteface\n"))
     {
@@ -186,6 +188,7 @@ int get_rand_peer(struct peer *p, int rand_sno, char *ku_fname)
     {
         return 1;
     }
+    printf("\n[!]Received: %s\n", cmdr);
 
     if((f=fopen(ku_fname, "w"))==NULL)
     {
@@ -236,6 +239,27 @@ char *rcv(int sock, char *reason)   //cmdr is freeed by callee
     return cmdr;
 }
 
+int end_db_connection()
+{
+    char *cmds=(char *)allocate("char", 512);
+    char *cmdr;
+
+    sprintf(cmds, "DONE");
+    if(snd(db_sock, cmds, "to end database connection\n"))
+    {
+        fprintf(stderr, "\n[-]Error in  sending end to db_inetface: %s\n", strerror(errno));
+        return 1;
+    }
+
+    if((cmdr=rcv(db_sock, "to receive database stop ack\n"))==NULL)
+    {
+        return 1;
+    }
+
+    free(cmdr);
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     if(init(argc))
@@ -263,7 +287,14 @@ int main(int argc, char *argv[])
     {
         _exit(-1);
     }
+    printf("\n[!]rand_sno is: %d\n", pc[0].rand_sno);
     if(get_rand_peer(&pc[0].p, pc[0].rand_sno, "const_peer_ku.pem"))
+    {
+        _exit(-1);
+    }
+    printf("\n[!]Got constant peer at: %s\n", inet_ntoa(pc[0].p.addr.sin_addr));
+
+    if(end_db_connection())
     {
         _exit(-1);
     }
