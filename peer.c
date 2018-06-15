@@ -19,7 +19,7 @@ struct client
     RSA *ku;
     int id;
 };
-int server_sock, db_sock, cli_count=0;
+int server_sock, db_sock, cli_count=0, my_rand;
 RSA *ku, *kv;
 
 //prototypes
@@ -35,6 +35,7 @@ int connect_to_fellow_peer(struct client *);
 RSA *gen_keys(char *, int);
 int dbconnect(char *);
 int update_existance_in_peers(char *);
+int end_db_connection();
 
 void *allocate(char *type, int size)
 {
@@ -158,7 +159,7 @@ void *server_run(void *a)
 void *cli_run(void *c)
 {
     struct client cli=*(struct client *)c;
-    char *cmds=(char *)allocate("char", 2048), *cmdr;
+    char *cmds=(char *)allocate("char", 2048), *cmdr, *cmdr_en;
     int bit;
 
     printf("\n[!]Now handelling client %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
@@ -169,15 +170,47 @@ void *cli_run(void *c)
     }
     
     bit=(int)strtol(strtok(cmdr, ":"), NULL, 10);
-    if(bit)
+    cli.fellow=bit;
+    if(bit) //no need to make a new fellow as this is the fellow
     {
-        cli.fellow=1;
+        FILE *f;
+        cmdr_en=strtok(NULL, ":");
+        char *cmds_db=(char *)allocate("char", 2048), *cmdr_db;
+
+        if(RSA_private_decrypt(RSA_size(kv), cmdr_en, cmds, kv, RSA_PKCS1_PADDING)<0)
+        {
+            fprintf(stderr, "\n[-]Error in decrypting for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), ERR_get_error());
+            pthread_exit("ERROR IN DECRYPTING");
+        }
+
+        sprintf(cmds_db, "1:0:0:%d", my_rand);
+        if(snd(db_sock, cmds_db, "to send client join info to dbinterface"))
+        {
+            pthread_exit("ERROR IN SENDING");
+        }
+
+        if((cmdr_db=rcv(db_sock, "receive client's newly generated random number"))==NULL)
+        {
+            pthread_exit("ERROR IN RECEVING");
+        }
+
+        printf("\n[!]Db_interface updated clients with status %s for peer %s:%s\n", strtok(cmdr_db, ":"), inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
+        if((f=fopen(strtok(NULL, ":"), "w"))==NULL)
+        {
+            fprintf(stderr, "\n[-]Error in opening file %s: %s\n", cmdr_db, strerror(errno));
+            pthread_exit("ERROR IN OPENING FILE");
+        }
+
+        for(int i=0; i<strlen(cmds); i++)
+        {
+            fprintf(f, "%c", cmds[i]);
+        }
+        fclose(f);
+        free(cmdr_db);
     }
-    else
+    else    //make a new fellow
     {
         struct client fellow;
-        char *cmdr_en;
-        cli.fellow=0;
         fellow.addr.sin_addr.s_addr=inet_addr(strtok(NULL, ":"));
         fellow.addr.sin_port=htons(6666);
         fellow.addr.sin_family=AF_INET;
@@ -188,7 +221,8 @@ void *cli_run(void *c)
             pthread_exit("ERROR IN CONNECTING TO FELLOW PEER");
         }
 
-        if(snd(fellow.sock, cmdr_en, "send encrypted msg to fellow peer"))
+        sprintf(cmds, "1:%s", cmdr_en); //1 for peer-peer send/recv
+        if(snd(fellow.sock, cmds, "send encrypted msg to fellow peer"))
         {
             pthread_exit("ERROR IN SENDING");
         }
@@ -302,12 +336,12 @@ int update_existance_in_peers(char *ku_fname)
         fprintf(stderr, "\n[-]Error in opening %s: %s\n", ku_fname, strerror(errno));
         return 1;
     }
-    strcat(cmds, "1:0:");
-    for(int i=4; !feof(f); i++)
+    strcat(cmds, "1:1:0:");
+    for(int i=6; !feof(f); i++)
     {
         fscanf(f, "%c", &cmds[i]);
     }
-    //1 for insert, zero for expected return columns
+    //1 for insert, 1 for inserting in peers, 0 for expected return columns
 
     if(send(db_sock, cmds, sizeof(char)*2048, 0)<0)
     {
@@ -321,10 +355,31 @@ int update_existance_in_peers(char *ku_fname)
         return 1;
     }
 
-    printf("\n[!]Received from dbinterface %s\n", cmdr);
+    printf("\n[!]Received from dbinterface %s\n", strtok(cmdr, ":"));
+    my_rand=(int)strtol(strtok(NULL, ":"), NULL, 10);
 
     fclose(f);
     free(cmds);
+    free(cmdr);
+    return 0;
+}
+
+int end_db_connection()
+{
+    char *cmds=(char *)allocate("char",2048);
+    char *cmdr;
+
+    sprintf(cmds, "DONE");
+    if(snd(db_sock, cmds, "to end db connection"))
+    {
+        return 1;
+    }
+
+    if(rcv(db_sock, "to recv ack of db connect end"))
+    {
+        return 1;
+    }
+
     free(cmdr);
     return 0;
 }
@@ -357,6 +412,11 @@ int main(int argc, char *argv[])
     }
 
     if(update_existance_in_peers(argv[2]))
+    {
+        _exit(-1);
+    }
+
+    if(end_db_connection())
     {
         _exit(-1);
     }
