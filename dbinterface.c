@@ -32,8 +32,8 @@ char *get_passwd();
 int server_workings();
 void *cli_run(void *);
 char *db_workings(struct client, char *);
-char *bit_is_one(struct client, int);
-char *bit_is_zero(struct client, int);
+char *bit_is_one(struct client, int, int);
+char *bit_is_zero(struct client, int, int);
 
 void *allocate(char *type, int size)
 {
@@ -254,19 +254,19 @@ void *cli_run(void *c)
 
 char *db_workings(struct client cli, char *cmdr)
 {
-    int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), exp_col=(int)strtol(strtok(NULL, ":"), NULL, 10);
+    int bit= (int)strtol(strtok(cmdr, ":"), NULL, 0), peer=(int)strtol(strtok(NULL, ":"), NULL, 10), exp_col=(int)strtol(strtok(NULL, ":"), NULL, 10);
     char *cmds;
 
     if(bit)
     {
-        if((cmds=bit_is_one(cli, exp_col))==NULL)
+        if((cmds=bit_is_one(cli, peer, exp_col))==NULL)
         {
             return NULL;
         }
     }
     else
     {
-        if((cmds=bit_is_zero(cli, exp_col))==NULL)
+        if((cmds=bit_is_zero(cli, peer, exp_col))==NULL)
         {
             return NULL;
         }
@@ -275,7 +275,7 @@ char *db_workings(struct client cli, char *cmdr)
     return cmds;
 }
 
-char *bit_is_one(struct client cli, int exp_col)
+char *bit_is_one(struct client cli, int peer, int exp_col)
 {
     char *cmds=(char *)allocate("char", 2048);
     char *query=(char *)allocate("char", 2048);
@@ -304,7 +304,15 @@ char *bit_is_one(struct client cli, int exp_col)
     }
 
     rand_array[counter]=rand;
-    sprintf(query, "insert into peers values (%d, %d, '%s', '%s');", sno++, rand, inet_ntoa(cli.addr.sin_addr), strtok(NULL, ":"));
+
+    if(peer)
+    {
+        sprintf(query, "insert into peers values (%d, %d, '%s', '%s');", sno++, rand, inet_ntoa(cli.addr.sin_addr), strtok(NULL, ":"));
+    }
+    else
+    {
+        sprintf(query, "insert into clients values ('%d', '%d');", (int)strtol(strtok(NULL, ":"), NULL, 10), rand);
+    }
     if(mysql_query(conn, query))
     {
         fprintf(stderr, "\n[-]Error in querying for %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), mysql_error(conn));
@@ -321,13 +329,13 @@ char *bit_is_one(struct client cli, int exp_col)
         fprintf(stderr, "\n[-]Error in unlocking wrt for client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(stat));
         return NULL;
     }
-    sprintf(cmds, "SUCCESS");
+    sprintf(cmds, "SUCCESS:%d", rand);
 
     free(query);
     return cmds;
 }
 
-char *bit_is_zero(struct client cli, int exp_col)
+char *bit_is_zero(struct client cli, int peer, int exp_col)
 {
     char *cmds=(char *)allocate("char", 2048);
     char *query=(char *)allocate("char", 2048);
