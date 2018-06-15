@@ -157,7 +157,7 @@ int get_rand_sno()
 {
     char *query=(char *)allocate("char", 2048);
     char *cmdr;
-    sprintf(query, "0:1:select count(*) from peers;");
+    sprintf(query, "0:1:1:select count(*) from peers;");    //0 for non-insert, 1 for using peers table, 1 for 1 exp_col
     
     if(snd(db_sock, query, "query to count number of peers"))
     {
@@ -182,11 +182,11 @@ int get_rand_peer(struct peer *p, int rand_sno, char *ku_fname) //ku_fname is no
 
     if(ku_fname!=NULL)
     {
-        sprintf(query, "0:3:select id, ip, ku from peers where sno=%d;", rand_sno);
+        sprintf(query, "0:1:3:select id, ip, ku from peers where sno=%d;", rand_sno);
     }
     else
     {
-        sprintf(query, "0:2:select id, ip from peers where sno=%d;", rand_sno);
+        sprintf(query, "0:1:2:select id, ip from peers where sno=%d;", rand_sno);
     }
 
     if(snd(db_sock, query, "get ip, id, and key from db_inteface\n"))
