@@ -2,10 +2,11 @@
 #include"allocate.h"
 #include"get_rand_sno.h"
 #include"get_rand_peer.h"
-#include"connect_to_fake_peer.h"
+#include"get_and_connect_to_new_fake_peer.h"
 #include"snd_rcv.h"
 #include<stdio.h>
 #include<stdlib.h>
+#include<unistd.h>
 #include<string.h>
 #include<openssl/rsa.h>
 #include<openssl/err.h>
@@ -18,16 +19,7 @@ int authenticate_with_const_peer(char *fname)
     char *cmds_en=(char *)allocate("char", 2048);
     FILE *f;
 
-    if((fake_peer.rand_sno=get_rand_sno())==-1)
-    {
-        return 1;
-    }
-    if(get_rand_peer(&fake_peer.p, fake_peer.rand_sno, NULL))
-    {
-        return 1;
-    }
-
-    if(connect_to_fake_peer(&fake_peer.p))
+    if(get_and_connect_to_new_fake_peer(&fake_peer))
     {
         return 1;
     }
@@ -55,6 +47,7 @@ int authenticate_with_const_peer(char *fname)
     }
 
     fclose(f);
+    close(fake_peer.p.sock);
     free(cmds);
     return 0;
 }
