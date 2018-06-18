@@ -14,7 +14,7 @@ void *allocate(char *type, int size)
         explicit_bzero(ret, size*sizeof(char));
     }
 
-    if(ret=NULL)
+    if(ret==NULL)
     {
         fprintf(stderr, "\n[-]Error in allocating %d bytes for %s type\n", size, type);
         _exit(-1);
