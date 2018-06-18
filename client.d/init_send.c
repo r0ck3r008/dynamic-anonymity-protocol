@@ -7,6 +7,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<unistd.h>
 #include<pthread.h>
 #include<sodium.h>
 #include<errno.h>
@@ -63,6 +64,7 @@ int init_send()
 
         printf("\n[!]wait_thr returned with %s status\n", (char *)retval);
         explicit_bzero(pc, sizeof(struct peer_combo));
+        close(pc->p.sock);
         free(cmdr);
     }
 
