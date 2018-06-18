@@ -1,19 +1,19 @@
 #include<stdio.h>
 #include<unistd.h>
 #include<sodium.h>
-#include"server_init.h"
 #include"gen_keys.h"
 #include"dbconnect.h"
 #include"get_rand_sno.h"
 #include"get_rand_peer.h"
 #include"authenticate_with_const_peer.h"
+#include"init_send.h"
 #include"end_db_connection.h"
 
 int init(int argc)
 {
-    if(argc!=5)
+    if(argc!=4)
     {
-        fprintf(stderr, "\n[!]Usage:\n./client [ip_to_bind:port_to_bind] [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
+        fprintf(stderr, "\n[!]Usage:\n./client [pub_key.pem] [priv_key.pem] [db_inetface_ip:port]\n");
         return 1;
     }
 
@@ -29,11 +29,6 @@ int init(int argc)
 int main(int argc, char *argv[])
 {
     if(init(argc))
-    {
-        _exit(-1);
-    }
-
-    if((server_sock=server_init(argv[1]))==0)
     {
         _exit(-1);
     }
@@ -61,6 +56,11 @@ int main(int argc, char *argv[])
     printf("\n[!]Got constant peer at: %s\n", inet_ntoa(const_peer.p.addr.sin_addr));
 
     if(authenticate_with_const_peer(argv[2]))
+    {
+        _exit(-1);
+    }
+
+    if(init_send())
     {
         _exit(-1);
     }
