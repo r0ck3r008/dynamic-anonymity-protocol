@@ -1,16 +1,15 @@
-#include<stdlib.h>
+#include"allocate.h"
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
-#include "allocate.h"
 
 void *allocate(char *type, int size)
 {
     void *ret=NULL;
-
     if(strcmp(type, "char")==0)
     {
-        ret=malloc(sizeof(char)*size);
+        ret=malloc(size*sizeof(char));
         explicit_bzero(ret, size*sizeof(char));
     }
 
