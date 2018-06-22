@@ -1,52 +1,71 @@
+#define _GNU_SOURCE
+#define NEEDS_JOINEE_GLOBALS
 #include"cli_run.h"
+#include"global_defs.h"
 #include"allocate.h"
-#include"db_workings.h"
+#include"snd_rcv.h"
+#include"query_db.h"
 #include<stdio.h>
 #include<stdlib.h>
-#include<sys/socket.h>
 #include<string.h>
-#include<errno.h>
+#include<unistd.h>
 #include<pthread.h>
+#include<errno.h>
 
 void *cli_run(void *c)
 {
-    struct client cli=*(struct client *)c;
-    char *cmdr=(char *)allocate("char", 2048);
-    char *cmds;
-    int bit;
+    struct joinee *cli=(struct joinee *)c;
+    char *cmdr, *cmds=(char *)allocate("char", 2048), *query;
+    char *retval=(char *)allocate("char", 64);
+    int exp_col;
 
-    printf("\n[!]Accepted from %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
     while(1)
     {
-        if(recv(cli.sock, cmdr, sizeof(char)*2048, 0)<0)
+        //rcv query
+        if((cmdr=rcv(cli->sock, "receive client query"))==NULL)
         {
-            fprintf(stderr, "\n[-]Error in receving from client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
-            pthread_exit("ERROR IN RECEVING");
-        }
-        if(strcmp(cmdr, "DONE")==0)
-        {
-            printf("\n[!]Exiting client %s:%d\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port));
-            if(send(cli.sock, "OK", sizeof(char)*strlen("OK"), 0)<0)
-            {
-                fprintf(stderr, "\n[-]Error in sending back ack to client %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
-                pthread_exit("ERROR IN SENDING ACK");
-            }
+            sprintf(retval, "FALIURE IN RECV");
             break;
         }
 
-        if((cmds=db_workings(cli, cmdr))==NULL)
+        //check privilages
+        if(strcasestr(cmdr, "insert")!=NULL || strcasestr(cmdr, "update")!=NULL)
         {
-            pthread_exit("ERROR IN DB_WORKINGS");
+            sprintf(retval, "USER RIGHTS VIOLATION");
+            break;
+        }
+        else if(strcmp(cmdr, "END")==0)
+        {
+            sprintf(retval, "ENDING DB CONNECTION");
+            break;
         }
 
-        if(send(cli.sock, cmds, sizeof(char)*2048, 0)<0)
+        //parse and execute query
+        exp_col=(int)strtol(strtok(cmdr, ":"), NULL, 10);
+        query=strtok(NULL, ":");
+        if(query_db(cli, query, cmds, exp_col))
         {
-            fprintf(stderr, "\n[-]Error in sending back to %s:%d: %s\n", inet_ntoa(cli.addr.sin_addr), ntohs(cli.addr.sin_port), strerror(errno));
-            pthread_exit("ERROR IN SENDING");
+            sprintf(retval, "ERROR IN QUERYING %s", query);
+            break;
         }
+
+        //send output
+        if(snd(cli->sock, cmds, "send back query output"))
+        {
+            sprintf(retval, "ERROR IN SENDING BACK OUTPUT");
+            break;
+        }
+
+        explicit_bzero(cmdr, sizeof(char)*2048);
+        explicit_bzero(cmds, sizeof(char)*2048);
     }
 
-    free(cmdr);free(cmds);
-    pthread_exit("SUCCESS");
-}
+    if(snd(cli->sock, retval, "send back feedback to client"))
+    {
+        sprintf(retval, "ERROR IN SENDING EXIT STATUS");
+    }
 
+    close(cli->sock);
+    free(cmdr);
+    pthread_exit(retval);
+}
