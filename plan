@@ -1,0 +1,17 @@
+1)  there are five parts to it
+        1)  client backend
+        2)  client proxy server interface
+        3)  database interface 
+        4)  peer
+        5)  end server
+2)  peers are from community support which anyone dedicated enough can easily setup to solocitate the network
+3)  client backend connects request by the client proxy server that can cater the end user's web browser, terminal etc.
+4)  dbinterface is an intergral part that mantains network metadatathat client or peer can access with various privilages, mantained by centralised server
+5)  server is just a service that represents a connection out of the anonimising network
+6)  the working:
+        ->  client proxy boots up as daemon and client simultaniously boots up and they interconnect(can unify them)
+        ->  end user initiates cxn to an arbitrary server
+        ->  the client reveives the request
+        ->  client is connected to dbinterface beforehand so is peer and so is dbinterface to its own implicit database
+        ->  dbinterface assigns privalages to connections on connection
+
