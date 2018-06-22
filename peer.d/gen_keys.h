@@ -2,7 +2,6 @@
 #define GEN_KEYS_H
 
 #include<openssl/rsa.h>
-RSA *ku, *kv;
 RSA *gen_keys(char *, int);
 
 #endif
