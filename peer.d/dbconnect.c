@@ -1,36 +1,33 @@
 #include"dbconnect.h"
-#include"allocate.h"
 #include<stdio.h>
-#include<string.h>
 #include<stdlib.h>
+#include<string.h>
 #include<sys/socket.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
 #include<errno.h>
 
-int dbconnect(char *argv4)
+int dbconnect(char *argv)
 {
-    int s;
-    char *ip=(char *)allocate("char", 20);
-    ip=strtok(argv4, ":");
+    char *ip=strtok(ip, ":");
+    int port=(int)strtol(strtok(NULL, ":"), NULL, 10);
     struct sockaddr_in addr;
-    addr.sin_family=AF_INET;
-    addr.sin_port=htons((int)strtol(strtok(NULL, ":"), NULL, 10));
+    addr.sin_port=htons(port);
     addr.sin_addr.s_addr=inet_addr(ip);
+    addr.sin_family=AF_INET;
+    int s;
 
     if((s=socket(AF_INET, SOCK_STREAM, 0))<0)
     {
-        fprintf(stderr, "\n[-]Error in creating db_sock: %s\n", strerror(errno));
-        return 0;
+        fprintf(stderr, "\n[-]Error in creating dbsock: %s\n", strerror(errno));
+        return -1;
     }
 
     if(connect(s, (struct sockaddr *)&addr, sizeof(addr))<0)
     {
         fprintf(stderr, "\n[-]Error in connecting to %s:%d: %s\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), strerror(errno));
-        return 0;
+        return -1;
     }
-    printf("\n[!]Connected to dbinterface...\n");
 
     return s;
 }
-
