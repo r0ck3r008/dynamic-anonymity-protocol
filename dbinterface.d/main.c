@@ -3,6 +3,8 @@
 #include<mysql/mysql.h>
 #include<sodium.h>
 #include"global_defs.h"
+#include"server_init.h"
+#include"server_workings.h"
 #include"dbconnect.h"
 
 int init(int argc)
@@ -35,7 +37,21 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
+    if((server_psock=server_init(argv[1]))==-1)
+    {
+        _exit(-1);
+    }
+    if((server_csock=server_init(argv[2]))==-1)
+    {
+        _exit(-1);
+    }
+
     if(dbconnect(argv[3]))
+    {
+        _exit(-1);
+    }
+
+    if(server_workings(argv[1], argv[2]))
     {
         _exit(-1);
     }
