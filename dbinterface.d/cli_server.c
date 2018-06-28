@@ -45,8 +45,8 @@ void *cli_server(void *a)
 
         printf("\n[!]Client %s:%d exited with status: %s\n", inet_ntoa(jcli[i].addr.sin_addr), ntohs(jcli[i].addr.sin_port), (char *)retval);
         close(jcli[i].sock);
+        free(retval);
     }
 
-    free(retval);
     pthread_exit("SUCCESS");
 }
