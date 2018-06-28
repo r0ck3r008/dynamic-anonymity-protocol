@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #define NEEDS_JOINEE_GLOBALS
+
 #include"cli_run.h"
 #include"global_defs.h"
 #include"allocate.h"
@@ -15,20 +16,20 @@
 void *cli_run(void *c)
 {
     struct joinee *cli=(struct joinee *)c;
-    char *cmdr, *cmds=(char *)allocate("char", 2048), *query;
+    char *cmdr, *cmds, *query, *cmds_last;
     char *retval=(char *)allocate("char", 64);
     int exp_col;
 
     while(1)
-    {
-        //rcv query
+    {    
+        cmds=(char *)allocate("char", 2048);
+
+        //rcv query and check privilages
         if((cmdr=rcv(cli->sock, "receive client query"))==NULL)
         {
             sprintf(retval, "FALIURE IN RECV");
             break;
         }
-
-        //check privilages
         if(strcasestr(cmdr, "insert")!=NULL || strcasestr(cmdr, "update")!=NULL)
         {
             sprintf(retval, "USER RIGHTS VIOLATION");
@@ -36,7 +37,7 @@ void *cli_run(void *c)
         }
         else if(strcmp(cmdr, "END")==0)
         {
-            sprintf(retval, "ENDING DB CONNECTION");
+            sprintf(retval, "ENDING DB CONNECTION"); 
             break;
         }
 
@@ -48,6 +49,7 @@ void *cli_run(void *c)
             sprintf(retval, "ERROR IN QUERYING %s", query);
             break;
         }
+        free(cmdr);
 
         //send output
         if(snd(cli->sock, cmds, "send back query output"))
@@ -55,17 +57,16 @@ void *cli_run(void *c)
             sprintf(retval, "ERROR IN SENDING BACK OUTPUT");
             break;
         }
-
-        explicit_bzero(cmdr, sizeof(char)*2048);
-        explicit_bzero(cmds, sizeof(char)*2048);
     }
 
-    if(snd(cli->sock, retval, "send back feedback to client"))
+    cmds_last=(char *)allocate("char", 2048);
+    sprintf(cmds_last, "%s", retval);
+    if(snd(cli->sock, cmds_last, "send back feedback to client"))
     {
+        explicit_bzero(retval, sizeof(char)*64);
         sprintf(retval, "ERROR IN SENDING EXIT STATUS");
     }
 
     close(cli->sock);
-    free(cmdr);
     pthread_exit(retval);
 }
