@@ -16,10 +16,12 @@
 
 int server_psock, server_csock;
 int cli_count, peer_count;
+int sno, *rand_num_arr;
 
     #ifdef NEEDS_MUTEX_GLOBALS  //for mutex
         #include<pthread.h>
-        pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+        extern pthread_mutex_t mutex;
+        extern pthread_mutex_t sno_rand_num;
     #endif      //for mutex end
 
     #ifdef NEEDS_JOINEE_GLOBALS     //for joinee related
