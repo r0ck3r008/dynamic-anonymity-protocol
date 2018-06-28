@@ -27,7 +27,7 @@ int update_existance(char *ku_fname, char *argv1)
     {
         fscanf(f, "%c", &key[i]);
     }
-    sprintf(cmds, "insert into peers values (%d, %d, '%s', '%s');", my_sno, my_rand_id, strtok(argv1, ":"), key);
+    sprintf(cmds, "0:insert into peers values (%d, %d, '%s', '%s');", my_sno, my_rand_id, strtok(argv1, ":"), key);
 
     if(snd(db_sock, cmds, "send existance insertion query"))
     {
@@ -39,12 +39,13 @@ int update_existance(char *ku_fname, char *argv1)
         return 1;
     }
 
-    if(strcmp(cmdr, "SUCCESS")!=0)
+    if(strcmp(strtok(cmdr, ":"), "SUCCESS")!=0)
     {
         fprintf(stderr, "\n[-]Existance insertion query failed: %s\n", cmdr);
         return 1;
     }
 
+    printf("\n[!]existance updated with status: %s\n", strtok(NULL, ":"));
     free(cmdr);
     free(key);
     return 0;
