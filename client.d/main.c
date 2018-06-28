@@ -7,6 +7,8 @@
 #include"dbconnect.h"
 #include"gen_keys.h"
 #include"get_connect_to_new_peer.h"
+#include"transactions.h"
+#include"end_db_connection.h"
 #include"global_defs.h"
 
 int init(int argc)
@@ -51,4 +53,16 @@ int main(int argc, char *argv[])
     {
         _exit(-1);
     }
+
+    if(transactions(argv[2]))
+    {
+        _exit(-1);
+    }
+
+    if(end_db_connection())
+    {
+        _exit(-1);
+    }
+
+    free(server_ip);
 }
