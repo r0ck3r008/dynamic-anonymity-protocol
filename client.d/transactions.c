@@ -2,6 +2,7 @@
 
 #include"transactions.h"
 #include"authenticate_with_const_peer.h"
+#include"get_connect_to_new_peer.h"
 #include"authenticate_with_tmp_peer.h"
 #include"allocate.h"
 #include"encrypt_snd_rcv.h"
@@ -129,8 +130,16 @@ void *wait_thr_run(void *r)
 
 int find_new_peer()
 {
+    int stat=0;
     char *cmds=(char *)allocate("char", 2048);
     sprintf(cmds, "%d:GIBBRESH", pkt_num++);
+    
+    tmp_peer=get_connect_to_new_peer(&stat, NULL);
+    if(stat)
+    {
+        return 1;
+    }
+    
 
     if(authenticate_with_tmp_peer(cmds))
     {

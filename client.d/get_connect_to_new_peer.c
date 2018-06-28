@@ -18,10 +18,12 @@ struct peer_combo get_connect_to_new_peer(int *a, char *ku_fname)
         *a=1;
     }
 
-    if(connect_to_new_peer(&pc.p))
+    if(ku_fname!=NULL)
     {
-        *a=1;
+        if(connect_to_new_peer(&pc.p))
+        {
+            *a=1;
+        }
     }
-
     return pc;
 }
