@@ -1,4 +1,7 @@
+#define NEEDS_JOINEE_STRUCT
+
 #include"allocate.h"
+#include"global_defs.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -11,6 +14,11 @@ void *allocate(char *type, int size)
     {
         ret=malloc(size*sizeof(char));
         explicit_bzero(ret, size*sizeof(char));
+    }
+    else if(strcmp(type, "struct client")==0)
+    {
+        ret=malloc(size*sizeof(struct client));
+        explicit_bzero(ret, size*sizeof(struct client));
     }
 
     if(ret==NULL)
