@@ -6,10 +6,11 @@
         #define NEEDS_KEY_GLOBALS
     #endif
 
-#include<openssl/rsa.h>
-int db_sock;
+int db_sock, my_rand_num, pkt_num;
+char *server_ip;
 
     #ifdef NEEDS_STRUCT_GLOBALS
+        #include<openssl/rsa.h>
         #include<sys/socket.h>
         #include<netinet/in.h>
         #include<arpa/inet.h>
@@ -24,11 +25,12 @@ int db_sock;
         {
             struct peer p;
             int rand_sno;
-        } const_peer;
+        } const_peer, tmp_peer;
 
     #endif
 
     #ifdef NEEDS_KEY_GLOBALS
+        #include<openssl/rsa.h>
         RSA *ku, *kv;
     #endif
 
