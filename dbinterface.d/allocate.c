@@ -12,6 +12,11 @@ void *allocate(char *type, int size)
         ret=malloc(size*sizeof(char));
         explicit_bzero(ret, size*sizeof(char));
     }
+    else if(strcmp(type, "int")==0)
+    {
+        ret=malloc(size*sizeof(int));
+        explicit_bzero(ret, size*sizeof(int));
+    }
 
     if(ret==NULL)
     {
