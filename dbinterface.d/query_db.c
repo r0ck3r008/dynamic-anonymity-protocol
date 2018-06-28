@@ -9,7 +9,8 @@
 int query_db(struct joinee *j, char *query, char *cmds, int exp_col)
 {
     int stat;
-    explicit_bzero(res, sizeof(char)*2048);
+    explicit_bzero(cmds, sizeof(char)*2048);
+    int flag=0;
 
     if((stat=pthread_mutex_lock(&mutex))!=0)
     {
@@ -29,6 +30,12 @@ int query_db(struct joinee *j, char *query, char *cmds, int exp_col)
     {
         strcat(cmds, row[i]);
     }
+    
+    if(mysql_affected_rows(conn)==1)
+    {
+        sprintf(cmds, "INSERTED/UPDATED");
+    }
+
     mysql_free_result(res);
 
     if((stat=pthread_mutex_unlock(&mutex))!=0)
