@@ -8,6 +8,7 @@
 #include"gen_keys.h"
 #include"dbconnect.h"
 #include"update_existance.h"
+#include"end_db_connection.h"
 
 int init(int argc)
 {
@@ -19,6 +20,9 @@ int init(int argc)
 
     return 0;
 }
+
+pthread_mutex_t db_sock_mutex=PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t max_clients_mutex=PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[])
 {
@@ -43,6 +47,11 @@ int main(int argc, char *argv[])
     }
 
     if(update_existance(argv[3], argv[1]))
+    {
+        _exit(-1);
+    }
+
+    if(end_db_connection())
     {
         _exit(-1);
     }
