@@ -1,8 +1,11 @@
+#define NEEDS_JOINEE_STRUCT
+
 #include"server_workings.h"
 #include"server_init.h"
 #include"cli_server.h"
 #include"peer_server.h"
 #include"global_defs.h"
+#include"allocate.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -14,6 +17,7 @@ int server_workings(char *argv1, char *argv2)
     int stat;
     pthread_t cli_thr, peer_thr;
     char *retval;
+    clients=(struct client *)allocate("struct client", 100);
 
     if((server_psock=server_init(argv1)))
     {
