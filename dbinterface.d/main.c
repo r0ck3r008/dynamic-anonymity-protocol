@@ -1,9 +1,10 @@
+#define NEEDS_ALL
 #include<stdio.h>
 #include<unistd.h>
 #include<mysql/mysql.h>
 #include<sodium.h>
 #include"global_defs.h"
-#include"server_init.h"
+#include"allocate.h"
 #include"server_workings.h"
 #include"dbconnect.h"
 
@@ -30,6 +31,9 @@ int init(int argc)
     return 0;
 }
 
+pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t sno_rand_num=PTHREAD_MUTEX_INITIALIZER;
+
 int main(int argc, char *argv[])
 {
     if(init(argc))
@@ -37,18 +41,16 @@ int main(int argc, char *argv[])
         _exit(-1);
     }
 
-    if((server_psock=server_init(argv[1]))==-1)
-    {
-        _exit(-1);
-    }
-    if((server_csock=server_init(argv[2]))==-1)
+    if(dbconnect(argv[3]))
     {
         _exit(-1);
     }
 
-    if(dbconnect(argv[3]))
+    sno=0;
+    rand_num_arr=(int *)allocate("int", 100);
+    for(int i=0; i<100; i++)
     {
-        _exit(-1);
+        rand_num_arr[i]=-1;
     }
 
     if(server_workings(argv[1], argv[2]))
