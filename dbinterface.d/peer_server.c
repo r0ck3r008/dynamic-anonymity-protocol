@@ -45,8 +45,8 @@ void *peer_server(void *a)
 
         printf("\n[!]Peer %s:%d exited with status: %s\n", inet_ntoa(jpeer[i].addr.sin_addr), ntohs(jpeer[i].addr.sin_port), (char *)retval);
         close(jpeer[i].sock);
+        free(retval);
     }
 
-    free(retval);
     pthread_exit("SUCCESS");
 }
