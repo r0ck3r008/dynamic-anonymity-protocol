@@ -11,7 +11,6 @@
 
 int dbconnect(char *argv)
 {
-    char *cmdr=(char *)allocate("char", 2048), *cmdr;
     char *ip=strtok(ip, ":");
     int port=(int)strtol(strtok(NULL, ":"), NULL, 10);
     struct sockaddr_in addr;
