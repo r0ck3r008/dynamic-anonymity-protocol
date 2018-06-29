@@ -1,7 +1,7 @@
 all: server.elf
 
 server.elf: main.o server_init.o server_workings.o snd_rcv.o allocate.o
-	gcc main.o server_init.o server_workings.o snd_rcv.o allocate.o -pthread -o server.elf
+	gcc -pthread -g main.o server_init.o server_workings.o snd_rcv.o allocate.o -o server.elf
 
 main.o: main.c
 	gcc -c main.c
