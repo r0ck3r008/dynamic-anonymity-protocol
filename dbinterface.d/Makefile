@@ -1,4 +1,4 @@
-all: dbinterface.elf
+all: dbinterface.elf clean_objects
 
 dbinterface.elf: main.o peer_run.o peer_server.o cli_run.o cli_server.o query_db.o server_workings.o server_init.o dbconnect.o snd_rcv.o get_passwd.o allocate.o
 	gcc -pthread -lsodium `pkg-config --cflags mariadb --libs mariadb` -g  main.o peer_run.o peer_server.o cli_run.o cli_server.o query_db.o server_workings.o server_init.o dbconnect.o snd_rcv.o get_passwd.o allocate.o -o dbinterface.elf
