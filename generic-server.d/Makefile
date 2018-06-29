@@ -1,4 +1,4 @@
-all: server.elf
+all: server.elf clean_objects
 
 server.elf: main.o server_init.o server_workings.o snd_rcv.o allocate.o
 	gcc -pthread -g main.o server_init.o server_workings.o snd_rcv.o allocate.o -o server.elf
