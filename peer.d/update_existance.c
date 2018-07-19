@@ -1,6 +1,6 @@
 #include"update_existance.h"
-#include"allocate.h"
-#include"snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/snd_rcv.h"
 #include"global_defs.h"
 #include<stdio.h>
 #include<stdlib.h>

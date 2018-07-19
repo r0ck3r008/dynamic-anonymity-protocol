@@ -1,8 +1,8 @@
 #define NEEDS_JOINEE_STRUCT
 
 #include"update_clients_table.h"
-#include"snd_rcv.h"
-#include"allocate.h"
+#include"common_headers/snd_rcv.h"
+#include"common_headers/allocate.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>

@@ -1,8 +1,8 @@
 #define NEEDS_JOINEE_STRUCT
 
 #include"cli_run.h"
-#include"allocate.h"
-#include"snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/snd_rcv.h"
 #include"global_defs.h"
 #include"regex_check.h"
 #include"handle_new_client.h"
