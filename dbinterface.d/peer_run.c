@@ -3,8 +3,8 @@
 #define _GNU_SOURCE
 
 #include"peer_run.h"
-#include"allocate.h"
-#include"snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/snd_rcv.h"
 #include"query_db.h"
 #include<stdio.h>
 #include<stdlib.h>
