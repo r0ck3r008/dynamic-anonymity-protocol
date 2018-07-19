@@ -1,6 +1,6 @@
 #define NEEDS_JOINEE_STRUCT
 
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"global_defs.h"
 #include<stdio.h>
 #include<stdlib.h>
