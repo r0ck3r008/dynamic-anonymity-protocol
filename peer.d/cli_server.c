@@ -1,7 +1,7 @@
 #define NEEDS_JOINEE_STRUCT
 
 #include"cli_server.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"global_defs.h"
 #include"cli_run.h"
 #include<stdio.h>
