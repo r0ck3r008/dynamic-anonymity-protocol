@@ -1,5 +1,5 @@
 #include"regex_check.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include<stdio.h>
 #include<regex.h>
 #include<sys/types.h>

@@ -5,7 +5,7 @@
 #include"cli_server.h"
 #include"peer_server.h"
 #include"global_defs.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
