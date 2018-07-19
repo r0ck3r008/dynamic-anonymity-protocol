@@ -1,10 +1,11 @@
 #define NEEDS_ALL
 
 #include"encrypt_snd_rcv.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"global_defs.h"
-#include"snd_rcv.h"
+#include"common_headers/snd_rcv.h"
 #include<stdio.h>
+#include<string.h>
 #include<openssl/err.h>
 
 int e_snd(int sock, char *cmds, char *reason)
@@ -13,7 +14,7 @@ int e_snd(int sock, char *cmds, char *reason)
 
     if(RSA_public_encrypt(RSA_size(const_peer.p.ku)-11, cmds, cmds_en, const_peer.p.ku, RSA_PKCS1_PADDING)<0)
     {
-        fprintf(stderr, "\n[-]Error in encrypting %s for reason %s: %s\n", cmds, reason, ERR_get_error());
+        fprintf(stderr, "\n[-]Error in encrypting %s for reason %s: %s\n", cmds, reason, strerror(ERR_get_error()));
         return 1;
     }
 
@@ -37,7 +38,7 @@ char *d_rcv(int sock, char *reason)
 
     if(RSA_private_decrypt(RSA_size(kv), cmdr_en, cmdr, kv, RSA_PKCS1_PADDING)<0)
     {
-        fprintf(stderr, "\n[-]Error in decrypting for reason %s: %s\n", reason, ERR_get_error());
+        fprintf(stderr, "\n[-]Error in decrypting for reason %s: %s\n", reason, strerror(ERR_get_error()));
         return NULL;
     }
 
