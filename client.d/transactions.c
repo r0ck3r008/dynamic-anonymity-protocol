@@ -4,9 +4,9 @@
 #include"authenticate_with_const_peer.h"
 #include"get_connect_to_new_peer.h"
 #include"authenticate_with_tmp_peer.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"encrypt_snd_rcv.h"
-#include"snd_rcv.h"
+#include"common_headers/snd_rcv.h"
 #include"global_defs.h"
 #include<string.h>
 #include<unistd.h>
