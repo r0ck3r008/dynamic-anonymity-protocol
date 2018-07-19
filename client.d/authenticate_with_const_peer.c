@@ -4,7 +4,7 @@
 #include"authenticate_with_const_peer.h"
 #include"authenticate_with_tmp_peer.h"
 #include"global_defs.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
