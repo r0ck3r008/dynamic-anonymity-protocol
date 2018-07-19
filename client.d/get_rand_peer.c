@@ -1,8 +1,8 @@
 #define NEEDS_STRUCT_GLOBALS
 
 #include"get_rand_peer.h"
-#include"allocate.h"
-#include"snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/snd_rcv.h"
 #include"write_key_to_file.h"
 #include<stdio.h>
 #include<string.h>
