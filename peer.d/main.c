@@ -5,8 +5,8 @@
 #include<unistd.h>
 #include"global_defs.h"
 #include"server_workings.h"
-#include"gen_keys.h"
-#include"dbconnect.h"
+#include"common_headers/gen_keys.h"
+#include"common_headers/dbconnect.h"
 #include"update_existance.h"
 #include"end_db_connection.h"
 
