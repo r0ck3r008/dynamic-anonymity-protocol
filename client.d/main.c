@@ -4,8 +4,8 @@
 #include<stdlib.h>
 #include<unistd.h>
 #include<sodium.h>
-#include"dbconnect.h"
-#include"gen_keys.h"
+#include"common_headers/dbconnect.h"
+#include"common_headers/gen_keys.h"
 #include"get_connect_to_new_peer.h"
 #include"transactions.h"
 #include"end_db_connection.h"
