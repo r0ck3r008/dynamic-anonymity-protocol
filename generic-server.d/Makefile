@@ -1,13 +1,10 @@
-I_PATH=$(HOME)/git/dynamic-anonimity-protocol
-COMPILER=gcc
 LINK_FLAGS=-pthread -g -o
-FINAL_BIN=server.elf
 ALL_OBJS= main.o server_init.o server_workings.o snd_rcv.o allocate.o
 
-all: $(FINAL_BIN) clean_objects
+all: $(SERVER_BIN) clean_objects
 
-$(FINAL_BIN): $(ALL_OBJS)
-	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(FINAL_BIN)
+$(SERVER_BIN): $(ALL_OBJS)
+	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(SERVER_BIN)
 
 main.o: main.c
 	$(COMPILER) -I$(I_PATH) -c main.c
@@ -26,6 +23,3 @@ allocate.o: $(I_PATH)/common_sources/allocate.c
 
 clean_objects:
 	rm *.o
-
-clean_bin:
-	rm $(FINAL_BIN)

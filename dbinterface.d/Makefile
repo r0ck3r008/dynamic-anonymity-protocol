@@ -1,13 +1,10 @@
-I_PATH=$(HOME)/git/dynamic-anonimity-protocol
-COMPILER=gcc
 LINK_FLAGS=-pthread -lsodium `pkg-config --cflags mariadb --libs mariadb` -g -o
-FINAL_BIN=dbinterface.elf
 ALL_OBJS= main.o peer_run.o peer_server.o cli_run.o cli_server.o query_db.o server_workings.o server_init.o dbconnect.o snd_rcv.o get_passwd.o allocate.o
 
-all: $(FINAL_BIN) clean_objects
+all: $(DBINTERFACE_BIN) clean_objects
 
-$(FINAL_BIN): $(ALL_OBJS)
-	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(FINAL_BIN)
+$(DBINTERFACE_BIN): $(ALL_OBJS)
+	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(DBINTERFACE_BIN)
 
 main.o: main.c
 	$(COMPILER) -I$(I_PATH) -c main.c
@@ -47,6 +44,3 @@ allocate.o: allocate.c
 
 clean_objects:
 	rm *.o
-
-clean_bin:
-	rm $(FINAL_BIN)

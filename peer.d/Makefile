@@ -1,13 +1,10 @@
-I_PATH=$(HOME)/git/dynamic-anonimity-protocol
-COMPILER=gcc
 LINK_FLAGS=-pthread -lsodium -lcrypto -g -o 
-FINAL_BIN=peer.elf
 ALL_OBJS= main.o end_db_connection.o cli_run.o cli_server.o handle_new_client.o connect_by_addr.o update_clients_table.o peer_run.o peer_server.o server_workings.o server_init.o update_existance.o snd_rcv.o regex_check.o dbconnect.o gen_keys.o allocate.o
 
-all: $(FINAL_BIN) clean_objects
+all: $(PEER_BIN) clean_objects
 
-peer.elf: $(ALL_OBJS)
-	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(FINAL_BIN)
+$(PEER_BIN): $(ALL_OBJS)
+	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(PEER_BIN)
 
 main.o: main.c
 	$(COMPILER) -I$(I_PATH) -c main.c
@@ -62,6 +59,3 @@ allocate.o: allocate.c
 
 clean_objects:
 	rm *.o
-
-clean_bin:
-	rm peer.elf
