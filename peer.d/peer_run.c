@@ -1,9 +1,9 @@
 #define NEEDS_ALL
 
 #include"peer_run.h"
-#include"snd_rcv.h"
-#include"allocate.h"
-#include"gen_keys.h"
+#include"common_headers/snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/gen_keys.h"
 #include"connect_by_addr.h"
 #include<stdio.h>
 #include<string.h>
@@ -139,7 +139,7 @@ char *decrypt(char *cmdr_en)
 
     if(RSA_private_decrypt(RSA_size(kv), cmdr_en, cmdr, kv, RSA_PKCS1_PADDING)<0)
     {
-        fprintf(stderr, "\n[-]Error in decrypting: %s\n", ERR_get_error());
+        fprintf(stderr, "\n[-]Error in decrypting: %s\n", strerror(ERR_get_error()));
         return NULL;
     }
 
@@ -152,7 +152,7 @@ char *encrypt(RSA *c_ku, char *cmds)
 
     if(RSA_public_encrypt(RSA_size(c_ku)-11, cmds, cmds_en, c_ku, RSA_PKCS1_PADDING)<0)
     {
-        fprintf(stderr, "\n[-]Error in encrypting %s: %s\n", cmds, ERR_get_error());
+        fprintf(stderr, "\n[-]Error in encrypting %s: %s\n", cmds, strerror(ERR_get_error()));
         return NULL;
     }
 
