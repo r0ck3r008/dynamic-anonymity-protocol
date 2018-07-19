@@ -1,7 +1,7 @@
 #define NEEDS_ALL
 
 #include"query_db.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include<stdio.h>
 #include<string.h>
 #include<errno.h>

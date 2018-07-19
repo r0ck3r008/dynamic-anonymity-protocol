@@ -4,7 +4,7 @@
 #include<mysql/mysql.h>
 #include<sodium.h>
 #include"global_defs.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"server_workings.h"
 #include"dbconnect.h"
 
