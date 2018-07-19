@@ -1,25 +1,31 @@
-all: server.elf clean_objects
+I_PATH=$(HOME)/git/dynamic-anonimity-protocol
+COMPILER=gcc
+LINK_FLAGS=-pthread -g -o
+FINAL_BIN=server.elf
+ALL_OBJS= main.o server_init.o server_workings.o snd_rcv.o allocate.o
 
-server.elf: main.o server_init.o server_workings.o snd_rcv.o allocate.o
-	gcc -pthread -g main.o server_init.o server_workings.o snd_rcv.o allocate.o -o server.elf
+all: $(FINAL_BIN) clean_objects
+
+$(FINAL_BIN): $(ALL_OBJS)
+	$(COMPILER) -I$(I_PATH) $(ALL_OBJS) $(LINK_FLAGS) $(FINAL_BIN)
 
 main.o: main.c
-	gcc -c main.c
+	$(COMPILER) -I$(I_PATH) -c main.c
 
 server_workings.o: server_workings.c
-	gcc -c server_workings.c
+	$(COMPILER) -I$(I_PATH) -c server_workings.c
 
 server_init.o: server_init.c
-	gcc -c server_init.c
+	$(COMPILER) -I$(I_PATH) -c server_init.c
 
-snd_rcv.o: snd_rcv.c
-	gcc -c snd_rcv.c
+snd_rcv.o: $(I_PATH)/common_sources/snd_rcv.c
+	$(COMPILER) -I$(I_PATH) -c $(I_PATH)/common_sources/snd_rcv.c
 
-allocate.o: allocate.c
-	gcc -c allocate.c
+allocate.o: $(I_PATH)/common_sources/allocate.c
+	$(COMPILER) -I$(I_PATH) -c $(I_PATH)/common_sources/allocate.c
 
 clean_objects:
 	rm *.o
 
 clean_bin:
-	rm server.elf
+	rm $(FINAL_BIN)
