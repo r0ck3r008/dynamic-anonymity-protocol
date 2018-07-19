@@ -2,10 +2,11 @@
 
 #include"authenticate_with_tmp_peer.h"
 #include"get_connect_to_new_peer.h"
-#include"allocate.h"
+#include"common_headers/allocate.h"
 #include"global_defs.h"
-#include"snd_rcv.h"
+#include"common_headers/snd_rcv.h"
 #include<openssl/err.h>
+#include<string.h>
 
 int authenticate_with_tmp_peer(char *cmds)
 {
@@ -14,7 +15,7 @@ int authenticate_with_tmp_peer(char *cmds)
     tmp_peer=get_connect_to_new_peer(&stat, NULL);
     if(RSA_public_encrypt(RSA_size(const_peer.p.ku)-11, cmds, cmds_en1, const_peer.p.ku, RSA_PKCS1_PADDING)<0)
     {
-        fprintf(stderr, "\n[-]Error in encrypting %s to authenticate with tmp_peer: %s\n", ERR_get_error());
+        fprintf(stderr, "\n[-]Error in encrypting %s to authenticate with tmp_peer: %s\n", cmds, strerror(ERR_get_error()));
         return 1;
     }
 
