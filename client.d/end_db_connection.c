@@ -1,7 +1,7 @@
 #include"end_db_connection.h"
 #include"global_defs.h"
-#include"allocate.h"
-#include"snd_rcv.h"
+#include"common_headers/allocate.h"
+#include"common_headers/snd_rcv.h"
 #include<stdio.h>
 #include<string.h>
 
